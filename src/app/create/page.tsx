@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { generateNote } from '@/lib/note-generator';
+import { generateNote } from '@/lib/note-generator-client';
 
 export default function CreateNotePage() {
   const [youtubeUrl, setYoutubeUrl] = useState('');
