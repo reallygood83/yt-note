@@ -191,26 +191,88 @@ ${section.content}
           )}
         </div>
 
-        {/* Progress */}
+        {/* Enhanced Progress Display */}
         {isGenerating && (
           <div className="bg-white rounded-lg shadow-lg p-6 mb-8">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">📊 생성 진행률</h3>
+            <h3 className="text-lg font-bold text-gray-900 mb-6">🔄 노트 생성 진행 상황</h3>
             
-            <div className="space-y-4">
-              <div className="w-full bg-gray-200 rounded-full h-3">
+            {/* Step Progress Indicators */}
+            <div className="mb-6">
+              <div className="flex justify-between items-center mb-4">
+                <span className="text-sm font-medium text-gray-700">처리 단계</span>
+                <span className="text-sm text-gray-500">{progress}% 완료</span>
+              </div>
+              
+              {/* Progress Steps */}
+              <div className="space-y-3">
+                <div className={`flex items-center p-3 rounded-lg ${progress >= 10 ? 'bg-green-50 border border-green-200' : 'bg-gray-50 border border-gray-200'}`}>
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center mr-3 ${progress >= 10 ? 'bg-green-500 text-white' : 'bg-gray-300 text-gray-600'}`}>
+                    {progress >= 20 ? '✓' : '1'}
+                  </div>
+                  <div className="flex-1">
+                    <div className="font-medium text-gray-900">📹 영상 정보 수집</div>
+                    <div className="text-sm text-gray-600">YouTube 메타데이터 및 기본 정보 추출</div>
+                  </div>
+                  {progress >= 10 && progress < 20 && <div className="animate-spin w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>}
+                </div>
+                
+                <div className={`flex items-center p-3 rounded-lg ${progress >= 20 ? 'bg-green-50 border border-green-200' : 'bg-gray-50 border border-gray-200'}`}>
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center mr-3 ${progress >= 20 ? 'bg-green-500 text-white' : 'bg-gray-300 text-gray-600'}`}>
+                    {progress >= 30 ? '✓' : '2'}
+                  </div>
+                  <div className="flex-1">
+                    <div className="font-medium text-gray-900">📝 자막 추출 및 전처리</div>
+                    <div className="text-sm text-gray-600">영상 자막 다운로드 및 텍스트 정리</div>
+                  </div>
+                  {progress >= 20 && progress < 30 && <div className="animate-spin w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>}
+                </div>
+                
+                <div className={`flex items-center p-3 rounded-lg ${progress >= 40 ? 'bg-green-50 border border-green-200' : 'bg-gray-50 border border-gray-200'}`}>
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center mr-3 ${progress >= 40 ? 'bg-green-500 text-white' : 'bg-gray-300 text-gray-600'}`}>
+                    {progress >= 60 ? '✓' : '3'}
+                  </div>
+                  <div className="flex-1">
+                    <div className="font-medium text-gray-900">🤖 AI 1차 분석</div>
+                    <div className="text-sm text-gray-600">자막 내용 분석 및 구간별 정리</div>
+                  </div>
+                  {progress >= 40 && progress < 60 && <div className="animate-spin w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>}
+                </div>
+                
+                <div className={`flex items-center p-3 rounded-lg ${progress >= 80 ? 'bg-green-50 border border-green-200' : 'bg-gray-50 border border-gray-200'}`}>
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center mr-3 ${progress >= 80 ? 'bg-green-500 text-white' : 'bg-gray-300 text-gray-600'}`}>
+                    {progress >= 100 ? '✓' : '4'}
+                  </div>
+                  <div className="flex-1">
+                    <div className="font-medium text-gray-900">📚 노트 구조화 및 완성</div>
+                    <div className="text-sm text-gray-600">최종 노트 생성 및 품질 검증</div>
+                  </div>
+                  {progress >= 80 && progress < 100 && <div className="animate-spin w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>}
+                </div>
+              </div>
+            </div>
+            
+            {/* Main Progress Bar */}
+            <div className="mb-4">
+              <div className="w-full bg-gray-200 rounded-full h-4">
                 <div 
-                  className="bg-blue-600 h-3 rounded-full transition-all duration-300"
+                  className="bg-gradient-to-r from-blue-500 to-green-500 h-4 rounded-full transition-all duration-300 flex items-center justify-end pr-2"
                   style={{ width: `${progress}%` }}
-                ></div>
+                >
+                  {progress > 10 && (
+                    <span className="text-xs text-white font-medium">{progress}%</span>
+                  )}
+                </div>
               </div>
-              
-              <div className="flex items-center text-gray-700">
-                <span className="mr-2">⏳</span>
-                {currentStep}
+            </div>
+            
+            {/* Current Step Detail */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-center text-blue-800">
+                <div className="animate-pulse w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
+                <div className="font-medium">{currentStep}</div>
               </div>
-              
-              <div className="text-sm text-gray-500">
-                {progress}% 완료 (예상 소요 시간: 15-30초)
+              <div className="text-sm text-blue-600 mt-1">
+                예상 소요 시간: 30-60초 | 고품질 분석을 위해 단계별로 처리 중입니다
               </div>
             </div>
           </div>
