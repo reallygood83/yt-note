@@ -149,56 +149,115 @@ ${group}
 8. JSON 형식을 정확히 지켜주세요
 `;
 
-    // Gemini API 호출
-    const geminiResponse = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          contents: [{
-            parts: [{
-              text: prompt
-            }]
-          }],
-          generationConfig: {
-            temperature: 0.7,
-            maxOutputTokens: 2048,
-          }
-        })
+    // Gemini API 호출 (더 안정적인 1.0-pro 모델 사용)
+    let aiGeneratedContent = null;
+    let usesFallback = false;
+
+    try {
+      console.log('Gemini API 호출 시작...');
+      const geminiResponse = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.0-pro:generateContent?key=${geminiApiKey}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            contents: [{
+              parts: [{
+                text: prompt
+              }]
+            }],
+            generationConfig: {
+              temperature: 0.7,
+              maxOutputTokens: 2048,
+              topK: 40,
+              topP: 0.95,
+            },
+            safetySettings: [
+              {
+                category: "HARM_CATEGORY_HARASSMENT",
+                threshold: "BLOCK_MEDIUM_AND_ABOVE"
+              },
+              {
+                category: "HARM_CATEGORY_HATE_SPEECH", 
+                threshold: "BLOCK_MEDIUM_AND_ABOVE"
+              },
+              {
+                category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                threshold: "BLOCK_MEDIUM_AND_ABOVE"
+              },
+              {
+                category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+                threshold: "BLOCK_MEDIUM_AND_ABOVE"
+              }
+            ]
+          })
+        }
+      );
+
+      console.log('Gemini API 응답 상태:', geminiResponse.status);
+
+      if (!geminiResponse.ok) {
+        const errorText = await geminiResponse.text();
+        console.error('Gemini API Error Response:', errorText);
+        throw new Error(`Gemini API 요청 실패: ${geminiResponse.status} - ${errorText}`);
       }
-    );
 
-    if (!geminiResponse.ok) {
-      const errorText = await geminiResponse.text();
-      console.error('Gemini API Error:', errorText);
-      throw new Error(`Gemini API 요청 실패: ${geminiResponse.status}`);
-    }
+      const geminiData = await geminiResponse.json();
+      console.log('Gemini API 응답 데이터:', JSON.stringify(geminiData, null, 2));
+      
+      if (!geminiData.candidates || geminiData.candidates.length === 0) {
+        console.error('Gemini API 후보 응답이 비어있음');
+        throw new Error('Gemini API 응답이 비어있습니다');
+      }
 
-    const geminiData = await geminiResponse.json();
-    
-    if (!geminiData.candidates || geminiData.candidates.length === 0) {
-      throw new Error('Gemini API 응답이 비어있습니다');
-    }
+      if (geminiData.candidates[0].finishReason === 'SAFETY') {
+        console.error('Gemini API 안전 필터에 걸림');
+        throw new Error('안전 필터로 인해 응답이 차단되었습니다');
+      }
 
-    const aiResponse = geminiData.candidates[0].content.parts[0].text;
-    
-    // JSON 응답 파싱
-    const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      throw new Error('AI 응답에서 JSON을 찾을 수 없습니다');
+      const aiResponse = geminiData.candidates[0].content.parts[0].text;
+      console.log('AI 응답 텍스트:', aiResponse);
+      
+      // JSON 응답 파싱
+      const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        console.error('AI 응답에서 JSON을 찾을 수 없음:', aiResponse);
+        throw new Error('AI 응답에서 JSON을 찾을 수 없습니다');
+      }
+      
+      aiGeneratedContent = JSON.parse(jsonMatch[0]);
+      console.log('파싱된 AI 응답:', aiGeneratedContent);
+
+    } catch (error) {
+      console.error('Gemini AI 처리 실패, Fallback 사용:', error);
+      usesFallback = true;
+      
+      // AI 실패 시 기본 노트 생성
+      aiGeneratedContent = {
+        keyInsight: `${videoInfo.title}에서 유용한 정보와 인사이트를 얻을 수 있습니다.`,
+        sections: transcriptGroups.map((group, index) => {
+          const startTime = Math.floor((index * totalMinutes) / transcriptGroups.length);
+          const endTime = Math.floor(((index + 1) * totalMinutes) / transcriptGroups.length);
+          return {
+            timeRange: `${startTime}:00-${endTime}:00`,
+            title: `구간 ${index + 1}: 핵심 내용`,
+            content: group.length > 300 ? group.substring(0, 300) + '...' : group,
+            keyConcepts: ['주요개념1', '주요개념2', '주요개념3'],
+            actionPoints: ['실행항목1', '실행항목2']
+          };
+        })
+      };
     }
-    
-    const parsedResponse = JSON.parse(jsonMatch[0]);
     
     return NextResponse.json({
       title: videoInfo.title,
       channelTitle: videoInfo.channelTitle,
       duration: videoInfo.duration,
-      keyInsight: parsedResponse.keyInsight,
-      sections: parsedResponse.sections
+      keyInsight: aiGeneratedContent.keyInsight,
+      sections: aiGeneratedContent.sections,
+      usedFallback: usesFallback
     });
 
   } catch (error) {
