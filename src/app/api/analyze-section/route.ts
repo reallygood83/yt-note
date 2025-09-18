@@ -2,11 +2,35 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
   try {
-    const { section, geminiApiKey } = await request.json();
+    console.log('[analyze-section] API 요청 수신');
+    const body = await request.json();
+    const { section, geminiApiKey } = body;
+    
+    console.log('[analyze-section] 요청 파라미터:', {
+      hasSection: !!section,
+      hasGeminiApiKey: !!geminiApiKey,
+      sectionKeys: section ? Object.keys(section) : [],
+      sectionTimeRange: section?.timeRange,
+      sectionRawTextLength: section?.rawText?.length || 0,
+      sectionKeyPointsCount: section?.keyPoints?.length || 0
+    });
     
     if (!section || !geminiApiKey) {
+      console.error('[analyze-section] 필수 매개변수 누락:', { hasSection: !!section, hasGeminiApiKey: !!geminiApiKey });
       return NextResponse.json({ 
         error: '필수 매개변수가 누락되었습니다.' 
+      }, { status: 400 });
+    }
+
+    // section 객체 구조 검증
+    if (!section.timeRange || !section.rawText || !section.keyPoints) {
+      console.error('[analyze-section] section 객체 구조 오류:', {
+        hasTimeRange: !!section.timeRange,
+        hasRawText: !!section.rawText,
+        hasKeyPoints: !!section.keyPoints
+      });
+      return NextResponse.json({ 
+        error: 'section 객체의 구조가 올바르지 않습니다.' 
       }, { status: 400 });
     }
 

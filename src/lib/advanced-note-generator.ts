@@ -232,6 +232,12 @@ export class AdvancedNoteGenerator {
       
       // 각 구간을 AI로 분석
       try {
+        console.log(`[AdvancedNoteGenerator] 구간 ${i + 1} 분석 시작:`, {
+          timeRange: section.timeRange,
+          rawTextLength: section.rawText?.length || 0,
+          keyPointsCount: section.keyPoints?.length || 0
+        });
+
         const response = await fetch('/api/analyze-section', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -241,10 +247,16 @@ export class AdvancedNoteGenerator {
           })
         });
 
+        console.log(`[AdvancedNoteGenerator] 구간 ${i + 1} API 응답 상태:`, response.status);
+
         if (response.ok) {
           const analysis = await response.json();
+          console.log(`[AdvancedNoteGenerator] 구간 ${i + 1} 분석 성공:`, analysis);
           results.push(analysis);
         } else {
+          const errorText = await response.text();
+          console.error(`[AdvancedNoteGenerator] 구간 ${i + 1} API 오류 (${response.status}):`, errorText);
+          
           // AI 실패 시 기본 분석
           results.push({
             timeRange: section.timeRange,
@@ -255,6 +267,8 @@ export class AdvancedNoteGenerator {
           });
         }
       } catch (error) {
+        console.error(`[AdvancedNoteGenerator] 구간 ${i + 1} 네트워크 오류:`, error);
+        
         // 오류 시 기본 분석
         results.push({
           timeRange: section.timeRange,

@@ -89,11 +89,25 @@ function groupTranscriptByTime(segments: TranscriptSegment[], totalDurationMinut
 
 export async function POST(request: NextRequest) {
   try {
-    const { videoId, transcripts, geminiApiKey, youtubeApiKey } = await request.json();
+    const body = await request.json();
+    const { videoId, geminiApiKey } = body;
     
-    if (!videoId || !geminiApiKey || !youtubeApiKey) {
+    if (!videoId || !geminiApiKey) {
       return NextResponse.json({ 
         error: '필수 매개변수가 누락되었습니다.' 
+      }, { status: 400 });
+    }
+
+    // 새로운 AdvancedNoteGenerator 호출 형식 처리
+    if (body.analyzedSections && body.videoInfo) {
+      return await handleAdvancedGeneration(body, geminiApiKey);
+    }
+    
+    // 기존 호출 형식 처리
+    const { transcripts, youtubeApiKey } = body;
+    if (!youtubeApiKey) {
+      return NextResponse.json({ 
+        error: 'youtubeApiKey가 누락되었습니다.' 
       }, { status: 400 });
     }
 
@@ -264,6 +278,133 @@ ${group}
     console.error('노트 생성 오류:', error);
     return NextResponse.json({ 
       error: '노트 생성 중 오류가 발생했습니다.',
+      details: error instanceof Error ? error.message : '알 수 없는 오류'
+    }, { status: 500 });
+  }
+}
+
+// AdvancedNoteGenerator에서 오는 새로운 형식 처리
+async function handleAdvancedGeneration(body: any, geminiApiKey: string) {
+  try {
+    const { videoId, videoInfo, analyzedSections } = body;
+    
+    console.log('Advanced generation 요청 처리 시작...');
+    
+    const prompt = `
+다음 YouTube 영상의 분석된 구간들을 기반으로 체계적인 학습 노트를 생성해주세요.
+
+영상 정보:
+- 제목: ${videoInfo.title}
+- 채널: ${videoInfo.channelTitle}
+- 길이: ${videoInfo.duration}
+
+분석된 구간들:
+${analyzedSections.map((section: any, index: number) => `
+[구간 ${index + 1}] ${section.timeRange}
+제목: ${section.title}
+내용: ${section.summary}
+핵심 개념: ${section.concepts?.join(', ') || ''}
+액션 포인트: ${section.actions?.join(', ') || ''}
+`).join('\n')}
+
+다음 형식으로 JSON 응답을 생성해주세요:
+
+{
+  "keyInsight": "이 영상의 가장 핵심적인 인사이트를 한 문장으로 요약",
+  "sections": [
+    {
+      "timeRange": "구간 시간",
+      "title": "구간 제목",
+      "content": "이 구간의 핵심 내용을 상세히 설명",
+      "keyConcepts": ["핵심개념1", "핵심개념2", "핵심개념3"],
+      "actionPoints": ["실행가능한액션1", "실행가능한액션2"]
+    }
+  ]
+}
+
+요구사항:
+1. keyInsight는 영상의 가장 중요한 메시지를 담아주세요
+2. sections는 제공된 분석 구간들을 반영해주세요
+3. content는 해당 구간의 핵심 내용을 2-3문장으로 요약해주세요
+4. keyConcepts는 중요한 개념이나 키워드 3개 정도
+5. actionPoints는 실제로 적용할 수 있는 구체적인 행동 2개 정도
+6. 모든 내용은 한국어로 작성해주세요
+7. JSON 형식을 정확히 지켜주세요
+`;
+
+    // Gemini API 호출
+    const geminiResponse = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${geminiApiKey}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [{
+            parts: [{
+              text: prompt
+            }]
+          }],
+          generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 2048,
+            topK: 40,
+            topP: 0.95,
+          },
+          safetySettings: [
+            {
+              category: "HARM_CATEGORY_HARASSMENT",
+              threshold: "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+              category: "HARM_CATEGORY_HATE_SPEECH", 
+              threshold: "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+              category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+              threshold: "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+              category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+              threshold: "BLOCK_MEDIUM_AND_ABOVE"
+            }
+          ]
+        })
+      }
+    );
+
+    if (!geminiResponse.ok) {
+      const errorText = await geminiResponse.text();
+      console.error('Gemini API Error Response:', errorText);
+      throw new Error(`Gemini API 요청 실패: ${geminiResponse.status}`);
+    }
+
+    const geminiData = await geminiResponse.json();
+    
+    if (!geminiData.candidates || geminiData.candidates.length === 0) {
+      throw new Error('Gemini API 응답이 비어있습니다');
+    }
+
+    const aiResponse = geminiData.candidates[0].content.parts[0].text;
+    
+    // JSON 응답 파싱
+    const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new Error('AI 응답에서 JSON을 찾을 수 없습니다');
+    }
+    
+    const aiGeneratedContent = JSON.parse(jsonMatch[0]);
+    
+    return NextResponse.json({
+      keyInsight: aiGeneratedContent.keyInsight,
+      sections: aiGeneratedContent.sections
+    });
+
+  } catch (error) {
+    console.error('Advanced generation 오류:', error);
+    return NextResponse.json({ 
+      error: 'Advanced generation 실패',
       details: error instanceof Error ? error.message : '알 수 없는 오류'
     }, { status: 500 });
   }
