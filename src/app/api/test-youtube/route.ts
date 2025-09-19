@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
     const html = await response.text();
     
     // Try to find ytInitialPlayerResponse
-    const ytPlayerMatch = html.match(/var ytInitialPlayerResponse = ({.*?});/s);
+    const ytPlayerMatch = html.match(/var ytInitialPlayerResponse = ({[\s\S]*?});/);
     
     if (ytPlayerMatch) {
       try {
@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
           
           // If still no segments, try to extract any text content
           if (segments.length === 0) {
-            const anyTextPattern = /<text[^>]*>(.*?)<\/text>/gs;
+            const anyTextPattern = /<text[^>]*>([\s\S]*?)<\/text>/g;
             const anyMatches = [...captionXml.matchAll(anyTextPattern)];
             console.log('Any text matches:', anyMatches.length);
             if (anyMatches.length > 0) {

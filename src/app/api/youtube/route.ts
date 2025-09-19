@@ -206,7 +206,7 @@ function extractKeywords(title: string, description: string): string[] {
 
 function estimateTopics(title: string, description: string): string[] {
   const text = `${title} ${description}`.toLowerCase();
-  const topics = [];
+  const topics: string[] = [];
   
   // Topic mapping
   const topicMap = {

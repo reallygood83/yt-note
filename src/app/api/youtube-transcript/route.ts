@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
     let captionMethod = '';
 
     // Method 1: ytInitialPlayerResponse
-    const ytPlayerMatch = html.match(/var ytInitialPlayerResponse = ({.*?});/s);
+    const ytPlayerMatch = html.match(/var ytInitialPlayerResponse = ({[\s\S]*?});/);
     if (ytPlayerMatch) {
       try {
         const playerData = JSON.parse(ytPlayerMatch[1]);
