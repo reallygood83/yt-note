@@ -22,17 +22,25 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // section 객체 구조 검증
-    if (!section.timeRange || !section.rawText || !section.keyPoints) {
+    // section 객체 구조 검증 (개선된 버전)
+    const hasValidTimeRange = section.timeRange && typeof section.timeRange === 'string';
+    const hasValidRawText = section.rawText && typeof section.rawText === 'string' && section.rawText.trim().length > 0;
+    const hasValidKeyPoints = section.keyPoints && Array.isArray(section.keyPoints) && section.keyPoints.length > 0;
+    
+    if (!hasValidTimeRange || !hasValidRawText || !hasValidKeyPoints) {
       console.error('[analyze-section] section 객체 구조 오류:', {
-        hasTimeRange: !!section.timeRange,
-        hasRawText: !!section.rawText,
-        hasKeyPoints: !!section.keyPoints
+        hasValidTimeRange,
+        hasValidRawText,
+        hasValidKeyPoints,
+        rawTextLength: section.rawText?.length || 0,
+        keyPointsCount: section.keyPoints?.length || 0
       });
       return NextResponse.json({ 
-        error: 'section 객체의 구조가 올바르지 않습니다.' 
+        error: 'section 객체의 구조가 올바르지 않습니다. timeRange, rawText(내용 있음), keyPoints(배열)가 필요합니다.' 
       }, { status: 400 });
     }
+
+    console.log('[analyze-section] 검증 통과 - 구간 분석 시작');
 
     const prompt = `
 다음 영상 구간을 분석하여 구조화된 JSON 응답을 생성해주세요.
